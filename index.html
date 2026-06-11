@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Finanzas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Service Worker registrado con éxito', reg))
+        .catch(err => console.log('Error al registrar el Service Worker', err));
+    });
+  }
+</script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #2ec4b6;
+            --secondary: #ff9f1c;
+            --danger: #e71d36;
+            --text-main: #011627;
+            --text-muted: #6c757d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding-bottom: 70px; /* Espacio para la barra de navegación inferior */
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), #209aa8);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            padding: 15px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Tarjetas y Estilos Generales */
+        .card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            color: var(--text-main);
+        }
+
+        .total-balance {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        /* Formularios */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.btn-secondary {
+            background-color: var(--secondary);
+        }
+
+        /* Cuentas/Bancos */
+        .account-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .account-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Objetivos/Metas */
+        .goal-item {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar-container {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            height: 12px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background-color: var(--secondary);
+            height: 100%;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        .delete-btn {
+            background: none;
+            color: var(--danger);
+            border: none;
+            width: auto;
+            padding: 0;
+            float: right;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        /* Historial / Movimientos estilo Nequi */
+        .movement-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 10px;
+            background: #f8f9fa;
+            margin-bottom: 8px;
+        }
+
+        .movement-info p {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .movement-info span {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .movement-amount {
+            font-weight: bold;
+        }
+
+        .income { color: var(--primary); }
+        .expense { color: var(--danger); }
+
+        /* Barra de Navegación Inferior (Estilo App) */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: var(--card-bg);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            text-decoration: none;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item .material-icons {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="app-title">Mis Finanzas</h1>
+    </header>
+
+    <div class="container">
+
+        <section id="view-balance" class="view active">
+            <div class="card">
+                <h2>Total Disponible</h2>
+                <div class="total-balance" id="total-money">$0.00</div>
+            </div>
+
+            <div class="card">
+                <h2>Tus Cuentas / Apps</h2>
+                <div id="accounts-list">
+                    </div>
+            </div>
+
+            <div class="card">
+                <h3>Añadir Dinero / Nueva App</h3>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="account-select">Selecciona o Crea Cuenta</label>
+                    <select id="account-select">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Daviplata">Daviplata</option>
+                        <option value="NEW">Añadir nueva aplicación bancaria...</option>
+                    </select>
+                </div>
+                <div class="form-group" id="new-app-group" style="display: none;">
+                    <label for="new-app-name">Nombre de la nueva App</label>
+                    <input type="text" id="new-app-name" placeholder="Ej. Bancolombia">
+                </div>
+                <div class="form-group">
+                    <label for="amount-to-add">Monto ($)</label>
+                    <input type="number" id="amount-to-add" placeholder="0.00">
+                </div>
+                <button onclick="addMoney()">Añadir Saldo</button>
+            </div>
+        </section>
+
+        <section id="view-expenses" class="view">
+            <div class="card">
+                <h2>Registro de Gastos</h2>
+                <canvas id="expensesChart" width="100" height="100"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Reportar un Gasto</h3>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="expense-source">¿De dónde sale el dinero?</label>
+                    <select id="expense-source"></select>
+                </div>
+                <div class="form-group">
+                    <label for="expense-amount">¿Cuánto gastaste? ($)</label>
+                    <input type="number" id="expense-amount" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="expense-what">¿QUÉ compraste u obtuviste?</label>
+                    <input type="text" id="expense-what" placeholder="Ej: Una hamburguesa">
+                </div>
+                <div class="form-group">
+                    <label for="expense-for-what">¿PARA QUÉ lo compraste?</label>
+                    <input type="text" id="expense-for-what" placeholder="Ej: Para almorzar con mi novia">
+                </div>
+                <div class="form-group">
+                    <label for="expense-why">¿POR QUÉ lo necesitabas? (Justificación)</label>
+                    <textarea id="expense-why" rows="2" placeholder="Ej: No alcancé a cocinar en la casa"></textarea>
+                </div>
+                <button onclick="registerExpense()" style="background-color: var(--danger);">Registrar Gasto</button>
+            </div>
+        </section>
+
+        <section id="view-goals" class="view">
+            <div class="card">
+                <h2>Mis Objetivos / Metas</h2>
+                <div id="goals-list">
+                    </div>
+            </div>
+
+            <div class="card">
+                <h3>Nuevo Objetivo</h3>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="goal-name">¿Qué quieres lograr/comprar?</label>
+                    <input type="text" id="goal-name" placeholder="Ej: Tenis nuevos o Ahorro diciembre">
+                </div>
+                <div class="form-group">
+                    <label for="goal-target">Monto Objetivo ($)</label>
+                    <input type="number" id="goal-target" placeholder="Ej: 300000">
+                </div>
+                <div class="form-group">
+                    <label for="goal-current">¿Cuánto tienes ya ahorrado para esto? ($)</label>
+                    <input type="number" id="goal-current" value="0">
+                </div>
+                <button onclick="addGoal()" class="btn-secondary">Crear Objetivo</button>
+            </div>
+        </section>
+
+        <section id="view-history" class="view">
+            <div class="card">
+                <h2>Historial de Movimientos</h2>
+                <div id="history-list">
+                    </div>
+            </div>
+        </section>
+
+    </div>
+
+    <nav class="nav-bar">
+        <a class="nav-item active" onclick="switchView('balance', this)">
+            <span class="material-icons">account_balance_wallet</span>
+            Saldos
+        </a>
+        <a class="nav-item" onclick="switchView('expenses', this)">
+            <span class="material-icons">trending_down</span>
+            Gastos
+        </a>
+        <a class="nav-item" onclick="switchView('goals', this)">
+            <span class="material-icons">emoji_events</span>
+            Objetivos
+        </a>
+        <a class="nav-item" onclick="switchView('history', this)">
+            <span class="material-icons">history</span>
+            Historial
+        </a>
+    </nav>
+
+    <script>
+        // --- BASE DE DATOS LOCAL (LocalStorage para que no se borre al cerrar) ---
+        let data = JSON.parse(localStorage.getItem('finanzas_db')) || {
+            accounts: { "Efectivo": 0, "Nequi": 0, "Daviplata": 0 },
+            expenses: [],
+            goals: [],
+            history: []
+        };
+
+        let myChart = null;
+
+        // Guardar automáticamente
+        function saveToStorage() {
+            localStorage.setItem('finanzas_db', JSON.stringify(data));
+            updateUI();
+        }
+
+        // --- ENRUTADOR DE VISTAS (Pestañas) ---
+        function switchView(viewId, element) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            element.classList.add('active');
+
+            if(viewId === 'expenses') {
+                renderChart();
+            }
+        }
+
+        // Detectar si el usuario quiere añadir un banco personalizado en el select
+        document.getElementById('account-select').addEventListener('change', function() {
+            const newAppGroup = document.getElementById('new-app-group');
+            if (this.value === 'NEW') {
+                newAppGroup.style.display = 'block';
+            } else {
+                newAppGroup.style.display = 'none';
+            }
+        });
+
+        // --- LÓGICA DE SALDOS ---
+        function addMoney() {
+            let select = document.getElementById('account-select');
+            let amount = parseFloat(document.getElementById('amount-to-add').value);
+            let accountName = select.value;
+
+            if (isNaN(amount) || amount <= 0) return alert("Ingresa un monto válido");
+
+            if (accountName === 'NEW') {
+                let customName = document.getElementById('new-app-name').value.trim();
+                if (!customName) return alert("Escribe el nombre de la nueva app");
+                accountName = customName;
+                if (!data.accounts[accountName]) data.accounts[accountName] = 0;
+            }
+
+            data.accounts[accountName] += amount;
+            
+            // Registro de historial
+            data.history.unshift({
+                type: 'income',
+                account: accountName,
+                amount: amount,
+                desc: `Dinero añadido a ${accountName}`,
+                date: new Date().toLocaleString()
+            });
+
+            // Limpieza de campos
+            document.getElementById('amount-to-add').value = '';
+            document.getElementById('new-app-name').value = '';
+            select.value = 'Efectivo';
+            document.getElementById('new-app-group').style.display = 'none';
+
+            saveToStorage();
+        }
+
+        // --- LÓGICA DE GASTOS ---
+        function registerExpense() {
+            const source = document.getElementById('expense-source').value;
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const what = document.getElementById('expense-what').value.trim();
+            const forWhat = document.getElementById('expense-for-what').value.trim();
+            const why = document.getElementById('expense-why').value.trim();
+
+            if (!source || isNaN(amount) || amount <= 0 || !what || !forWhat || !why) {
+                return alert("Por favor llena todos los campos del gasto. El porqué y el para qué son obligatorios.");
+            }
+
+            if (data.accounts[source] < amount) {
+                return alert("¡Fondos insuficientes en esta cuenta!");
+            }
+
+            // Descontar saldo
+            data.accounts[source] -= amount;
+
+            const fullDetail = `Qué: ${what} | Para qué: ${forWhat} | Por qué: ${why}`;
+            const today = new Date().toLocaleDateString();
+
+            // Guardar gasto
+            data.expenses.push({
+                date: today,
+                amount: amount,
+                detail: what
+            });
+
+            // Guardar en historial general
+            data.history.unshift({
+                type: 'expense',
+                account: source,
+                amount: amount,
+                desc: fullDetail,
+                date: new Date().toLocaleString()
+            });
+
+            // Limpiar formulario
+            document.getElementById('expense-amount').value = '';
+            document.getElementById('expense-what').value = '';
+            document.getElementById('expense-for-what').value = '';
+            document.getElementById('expense-why').value = '';
+
+            saveToStorage();
+            renderChart();
+        }
+
+        // --- LÓGICA DE OBJETIVOS ---
+        function addGoal() {
+            const name = document.getElementById('goal-name').value.trim();
+            const target = parseFloat(document.getElementById('goal-target').value);
+            const current = parseFloat(document.getElementById('goal-current').value) || 0;
+
+            if (!name || isNaN(target) || target <= 0) return alert("Completa los datos del objetivo");
+
+            data.goals.push({ id: Date.now(), name, target, current });
+
+            document.getElementById('goal-name').value = '';
+            document.getElementById('goal-target').value = '';
+            document.getElementById('goal-current').value = '0';
+
+            saveToStorage();
+        }
+
+        function deleteGoal(id) {
+            data.goals = data.goals.filter(g => g.id !== id);
+            saveToStorage();
+        }
+
+        // --- ACTUALIZACIÓN DE LA INTERFAZ DE USUARIO (UI) ---
+        function updateUI() {
+            // 1. Calcular Totales y Actualizar Selectores
+            let total = 0;
+            let accountsHtml = '';
+            let selectHtml = '';
+            let expenseSourceHtml = '';
+
+            for (let acc in data.accounts) {
+                total += data.accounts[acc];
+                accountsHtml += `
+                    <div class="account-item">
+                        <strong>${acc}</strong>
+                        <span>$${data.accounts[acc].toLocaleString()}</span>
+                    </div>
+                `;
+                selectHtml += `<option value="${acc}">${acc}</option>`;
+                expenseSourceHtml += `<option value="${acc}">${acc} ($${data.accounts[acc].toLocaleString()})</option>`;
+            }
+            selectHtml += `<option value="NEW">Añadir nueva aplicación bancaria...</option>`;
+
+            document.getElementById('total-money').innerText = `$${total.toLocaleString()}`;
+            document.getElementById('accounts-list').innerHTML = accountsHtml;
+            document.getElementById('account-select').innerHTML = selectHtml;
+            document.getElementById('expense-source').innerHTML = expenseSourceHtml;
+
+            // 2. Renderizar Objetivos
+            let goalsHtml = '';
+            data.goals.forEach(g => {
+                let percentage = (g.current / g.target) * 100;
+                if(percentage > 100) percentage = 100;
+                let missing = g.target - g.current;
+                if(missing < 0) missing = 0;
+
+                goalsHtml += `
+                    <div class="goal-item">
+                        <div class="goal-header">
+                            <span>${g.name}</span>
+                            <span>$${g.current.toLocaleString()} / $${g.target.toLocaleString()}</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: ${percentage}%"></div>
+                        </div>
+                        <small style="color: var(--text-muted);">Te faltan: $${missing.toLocaleString()}</small>
+                        <button class="delete-btn" onclick="deleteGoal(${g.id})">Borrar</button>
+                        <div style="clear:both;"></div>
+                    </div>
+                `;
+            });
+            document.getElementById('goals-list').innerHTML = goalsHtml || '<p style="color:var(--text-muted)">No hay objetivos creados.</p>';
+
+            // 3. Renderizar Historial estilo Nequi
+            let historyHtml = '';
+            data.history.forEach(h => {
+                const isIncome = h.type === 'income';
+                historyHtml += `
+                    <div class="movement-item">
+                        <div class="movement-info">
+                            <p>${h.desc}</p>
+                            <span>${h.date} • Vía: ${h.account}</span>
+                        </div>
+                        <div class="movement-amount ${h.type}">
+                            ${isIncome ? '+' : '-'}$${h.amount.toLocaleString()}
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('history-list').innerHTML = historyHtml || '<p style="color:var(--text-muted)">Aún no registras movimientos.</p>';
+        }
+
+        // --- RENDERIZADO DEL GRÁFICO ---
+        function renderChart() {
+            const ctx = document.getElementById('expensesChart').getContext('2d');
+            
+            // Agrupar gastos por día
+            let dailyTotals = {};
+            data.expenses.forEach(e => {
+                dailyTotals[e.date] = (dailyTotals[e.date] || 0) + e.amount;
+            });
+
+            const labels = Object.keys(dailyTotals);
+            const values = Object.values(dailyTotals);
+
+            if (myChart) {
+                myChart.destroy(); // Destruir gráfico anterior para refrescar datos nuevos
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'bar', // Tipo barra o 'line' para línea temporal
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Gastos por Día ($)',
+                        data: values,
+                        backgroundColor: '#e71d36',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Ejecución Inicial al cargar la página
+        updateUI();
+    </script>
+</body>
+</html>
